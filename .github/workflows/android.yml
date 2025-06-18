@@ -5,6 +5,19 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:  # 手动触发配置
+    inputs:
+      arch:  # 架构选择参数
+        description: 'Select target architecture'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - x86
+          - x86_64
+          - arm64-v8a
+          - armeabi-v7a
 
 jobs:
   build:
@@ -22,19 +35,24 @@ jobs:
       uses: android-actions/setup-android@v2
       with:
         api-level: 33
-        ndk-version: '25c'  # 根据项目需求调整NDK版本
+        ndk-version: '25c'
 
-    - name: Set NDK environment variable
+    - name: Set NDK path
       run: echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/$ANDROID_NDK_VERSION" >> $GITHUB_ENV
 
     - name: Grant execute permissions
       run: chmod +x ./gradlew
 
-    - name: Build all architectures
-      run: ./gradlew assembleDebug
+    - name: Build architecture(s)
+      run: |
+        if [ "${{ github.event.inputs.arch }}" == "all" ]; then
+          ./gradlew assembleDebug
+        else
+          ./gradlew assemble${{ github.event.inputs.arch.toUpperCase() }}Debug
+        fi
 
     - name: Upload APK artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: android-apks
+        name: android-apk-${{ github.event.inputs.arch }}
         path: app/build/outputs/apk/**/debug/*.apk
